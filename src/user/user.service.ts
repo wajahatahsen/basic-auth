@@ -23,7 +23,6 @@ export class UserService {
       where: { username: createUserDto.username },
     });
     if (existingUser) {
-      this.logger.log('yo');
       throw new ConflictException('Username is already taken');
     }
 
