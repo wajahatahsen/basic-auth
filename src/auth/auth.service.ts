@@ -1,10 +1,10 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { UserService } from 'src/user/user.service';
 import * as bcrypt from 'bcrypt';
 import User from 'src/user/entities/user.entity';
 import { JwtService } from '@nestjs/jwt';
 import { SigninDto } from './dto/signin.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
+import { UserService } from '../user/user.service';
 
 @Injectable()
 export class AuthService {
@@ -14,24 +14,30 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async validateUser(userName: string, password: string) {
-    const user: User = await this.userService.findByUsername(userName);
-    const isMatch = await bcrypt.compare(password, user.password);
+  async validateUser(username: string, password: string) {
+    this.logger.log(`validating user: ${username}`);
+    const user: User = await this.userService.findByUsername(username);
 
-    if (user && isMatch) {
+    if (user && (await bcrypt.compare(password, user.password))) {
       return user;
     } else {
+      this.logger.error('Invalid credentials');
       throw new BadRequestException('Invalid credentials');
     }
   }
 
   async validateJwtUser({ username }: JwtPayload) {
+    this.logger.log(`validating jwt user: ${username}`);
     const user: User = await this.userService.findByUsername(username);
     if (user) return user;
-    else throw new BadRequestException('Invalid credentials');
+    else {
+      this.logger.error('Invalid credentials');
+      throw new BadRequestException('Invalid credentials');
+    }
   }
 
   validateJwtPayload(payload: JwtPayload): boolean {
+    this.logger.log('validating jwt');
     const expirationTime = payload.exp * 1000;
     const currentTime = Date.now();
     let isJwtValid: boolean = false;
@@ -43,6 +49,7 @@ export class AuthService {
   }
 
   async signIn(signinDto: SigninDto): Promise<string> {
+    this.logger.log(`signing in user: ${signinDto.username}`);
     const user: User = await this.userService.findByUsername(
       signinDto.username,
     );
@@ -58,6 +65,7 @@ export class AuthService {
       });
       return accessToken;
     } else {
+      this.logger.error('Invalid credentials');
       throw new BadRequestException('Invalid credentials');
     }
   }

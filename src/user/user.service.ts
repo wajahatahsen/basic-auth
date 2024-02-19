@@ -9,8 +9,9 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import User from './entities/user.entity';
 import * as bcrypt from 'bcrypt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ObjectId, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { UserDto } from './dto/user-dto';
+import { ObjectId } from 'mongodb';
 
 @Injectable()
 export class UserService {
@@ -19,14 +20,15 @@ export class UserService {
 
   async create(createUserDto: CreateUserDto): Promise<UserDto> {
     this.logger.log('Creating new user');
-    const existingUser = await this.userRepo.findOne({
+    const existingUser: User = await this.userRepo.findOne({
       where: { username: createUserDto.username },
     });
     if (existingUser) {
+      this.logger.error('Username is already taken');
       throw new ConflictException('Username is already taken');
     }
 
-    const newUser = this.userRepo.create({
+    const newUser: User = this.userRepo.create({
       ...createUserDto,
       password: await bcrypt.hash(createUserDto.password, 10),
     });
@@ -45,18 +47,52 @@ export class UserService {
       where: { username: username },
     });
     if (!user) {
+      this.logger.error(`User with username ${username} not found`);
       throw new NotFoundException(`User with username '${username}' not found`);
     }
     return user;
   }
 
-  async update(_id: string, updateUserDto: UpdateUserDto) {
-    this.logger.log(`Updating user having id: ${_id}`);
-    return this.userRepo.update(new ObjectId(_id), updateUserDto);
+  async update(userId: ObjectId, updateUserDto: UpdateUserDto): Promise<User> {
+    this.logger.log(`Updating user having id: ${userId}`);
+    const userToUpdate = await this.userRepo.findOne({
+      where: { _id: userId },
+    });
+    if (!userToUpdate) {
+      this.logger.error(`User with id ${userId} not found`);
+      throw new NotFoundException(`User with id ${userId} not found`);
+    }
+
+    if (updateUserDto.password) {
+      const hashedPassword = await bcrypt.hash(updateUserDto.password, 10);
+      updateUserDto.password = hashedPassword;
+    }
+    if (updateUserDto.username) {
+      const existingUser: User = await this.userRepo.findOne({
+        where: { username: updateUserDto.username },
+      });
+      if (existingUser) {
+        this.logger.error(
+          `Username: ${updateUserDto.username} is already taken`,
+        );
+        throw new ConflictException(
+          `Username: ${updateUserDto.username} is already taken`,
+        );
+      }
+    }
+
+    Object.assign(userToUpdate, updateUserDto);
+
+    return await this.userRepo.save(userToUpdate);
   }
 
-  async remove(_id: string) {
+  async remove(_id: ObjectId) {
     this.logger.log(`Removing user having id: ${_id}`);
-    return this.userRepo.delete(new ObjectId(_id));
+    const deleteResult = await this.userRepo.delete(_id);
+    if (deleteResult.affected === 0) {
+      this.logger.error(`User with id ${_id} not found`);
+      throw new NotFoundException(`User with id ${_id} not found`);
+    }
+    return deleteResult.affected > 0;
   }
 }
