@@ -9,6 +9,7 @@ NODE_ENV=local
 DB_HOST=localhost
 DB_PORT=27017
 DB_NAME=auth
+APP_PORT=9000
 ```
 
 ### Install dependencies:
