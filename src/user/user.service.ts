@@ -11,7 +11,6 @@ import * as bcrypt from 'bcrypt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserDto } from './dto/user-dto';
-import { ObjectId } from 'mongodb';
 
 @Injectable()
 export class UserService {
@@ -53,14 +52,14 @@ export class UserService {
     return user;
   }
 
-  async update(userId: ObjectId, updateUserDto: UpdateUserDto): Promise<User> {
-    this.logger.log(`Updating user having id: ${userId}`);
+  async update(username: string, updateUserDto: UpdateUserDto): Promise<User> {
+    this.logger.log(`Updating user having username: ${username}`);
     const userToUpdate = await this.userRepo.findOne({
-      where: { _id: userId },
+      where: { username: username },
     });
     if (!userToUpdate) {
-      this.logger.error(`User with id ${userId} not found`);
-      throw new NotFoundException(`User with id ${userId} not found`);
+      this.logger.error(`User with username ${username} not found`);
+      throw new NotFoundException(`User with username ${username} not found`);
     }
 
     if (updateUserDto.password) {
@@ -86,12 +85,12 @@ export class UserService {
     return await this.userRepo.save(userToUpdate);
   }
 
-  async remove(_id: ObjectId) {
-    this.logger.log(`Removing user having id: ${_id}`);
-    const deleteResult = await this.userRepo.delete(_id);
+  async remove(username: string) {
+    this.logger.log(`Removing user having username: ${username}`);
+    const deleteResult = await this.userRepo.delete({ username: username });
     if (deleteResult.affected === 0) {
-      this.logger.error(`User with id ${_id} not found`);
-      throw new NotFoundException(`User with id ${_id} not found`);
+      this.logger.error(`User with username ${username} not found`);
+      throw new NotFoundException(`User with username ${username} not found`);
     }
     return deleteResult.affected > 0;
   }
